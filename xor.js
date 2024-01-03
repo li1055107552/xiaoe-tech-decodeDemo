@@ -175,7 +175,7 @@ async function getkey(m3u8Content, userid) {
 /**
  * @description 获取 key ^ userid 之后的密钥
  * @param {Buffer} keyBuffer key的Buffer形式，可直接通过 getkey() 获取
- * @param {*} userid 控制台打印 USERID 获取
+ * @param {String} userid 控制台打印 USERID 获取
  * @returns {Buffer} key与userid异或后的密钥
  */
 function xorKeys(keyBuffer, userid) {
