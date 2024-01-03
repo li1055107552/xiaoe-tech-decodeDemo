@@ -102,7 +102,7 @@ function getTSList(m3u8Content, tsUrldemo) {
 
             // 遍历键值对数组，并将其解析为对象
             for (const pair of paramPairs) {
-                if(pair == "") continue
+                if (pair == "") continue
                 const [key, value] = pair.split('=');
                 params[key] = value;
             }
@@ -132,7 +132,7 @@ function getTSList(m3u8Content, tsUrldemo) {
         }
 
         let newURL = demoURLObj.base + demoURLObj.path + '/' + uriObj.fileName + "?" + objectToQueryString(param)
-        
+
         list[i] = newURL
     }
 
@@ -235,14 +235,20 @@ function decode(secret_key, IV, rawfilepath, savefilepath) {
 
     // 读取密文的TS分片
     const encryptedFilePath = rawfilepath;
-    const encryptedData = fs.readFileSync(encryptedFilePath);
+    let encryptedData = fs.readFileSync(encryptedFilePath);
 
     // 创建解密器
     const decipher = crypto.createDecipheriv('aes-128-cbc', secret_key, IV);
 
+    console.log(encryptedData.length % 16)
     // 解密数据
-    const decryptedData = Buffer.concat([decipher.update(encryptedData), decipher.final()]);
-    
+    let decryptedData;
+    if (IV.toString('hex') === "00000000000000000000000000000000")
+        decryptedData = Buffer.concat([decipher.update(encryptedData), decipher.final()]);
+    else
+        decryptedData = decipher.update(encryptedData);
+
+
     // 写入解密后的数据
     const decryptedFilePath = savefilepath;
     fs.writeFileSync(decryptedFilePath, decryptedData);
@@ -263,7 +269,7 @@ async function main() {
     let decodeFilePath = path.join(__dirname, fileDir, 'decode')
     ensureDirectoryExists(downloadFilePath)
     ensureDirectoryExists(decodeFilePath)
-    if(fs.existsSync(path.join(decodeFilePath, "filelist.txt"))) fs.rmSync(path.join(decodeFilePath, "filelist.txt"))
+    if (fs.existsSync(path.join(decodeFilePath, "filelist.txt"))) fs.rmSync(path.join(decodeFilePath, "filelist.txt"))
 
 
     // 获取m3u8文件
@@ -287,27 +293,28 @@ async function main() {
         const filename = `${i}_${url.match(/\/([^\/]+\.ts)(\?|$)/)[1]}`;
         await downloadTS(url, path.join(downloadFilePath, filename))
 
+        let dname = `${i}.ts`
         try {
-            await decode(decryptedKey, IV, path.join(downloadFilePath, filename), path.join(decodeFilePath, filename))
+            await decode(decryptedKey, IV, path.join(downloadFilePath, filename), path.join(decodeFilePath, dname))
         } catch (error) {
             if (error.code == "ERR_OSSL_EVP_BAD_DECRYPT") {
                 decryptedKey = key
-                await decode(decryptedKey, IV, path.join(downloadFilePath, filename), path.join(decodeFilePath, filename))
+                await decode(decryptedKey, IV, path.join(downloadFilePath, filename), path.join(decodeFilePath, dname))
             }
-            if (error.code == "ERR_OSSL_EVP_WRONG_FINAL_BLOCK_LENGTH") {
+            else if (error.code == "ERR_OSSL_EVP_WRONG_FINAL_BLOCK_LENGTH") {
                 console.log(error);
                 break;
                 // let u8 = Buffer.from(decryptedKey, 'utf8');
                 // IV = Buffer.alloc(16, 0)
                 // await decode(u8, IV, path.join(downloadFilePath, filename), path.join(decodeFilePath, filename))
             }
-            else{
+            else {
                 console.log(error);
                 break;
             }
         }
 
-        let str = `file '${filename}'\n`
+        let str = `file '${dname}'\n`
         fs.appendFileSync(path.join(decodeFilePath, "filelist.txt"), str, "utf-8")
     }
 
